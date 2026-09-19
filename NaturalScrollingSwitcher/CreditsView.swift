@@ -12,21 +12,21 @@ struct CreditsView: View {
     var body: some View {
         VStack(spacing: 12) {
 
-            Text("Natural Scrolling Switcher")
+            Text(L10n.appName)
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            Text("A macOS utility that automatically switches Natural Scrolling depending on the connected input device.")
+            Text(L10n.aboutDescription)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             Divider()
 
-            Text("Created by Akeri")
+            Text(L10n.aboutCreator)
                 .font(.body)
 
-            Button("Close") {
+            Button(L10n.buttonClose) {
                 NSApplication.shared.keyWindow?.close()
             }
         }

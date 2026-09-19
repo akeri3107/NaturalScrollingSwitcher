@@ -8,169 +8,113 @@
 import Foundation
 import Combine
 
-enum NaturalScrollingMode: Equatable {
-    case on
-    case off
-    case automatic
-}
-
+@MainActor
 final class ScrollMonitor: ObservableObject {
-
     private let mouseDetector: MouseDetector
-    private let scrollManager: ScrollManager
-
-    private var timer: Timer?
-    private var lastMouseState: Bool?
+    private let policyStore: DevicePolicyStore
+    private let applyScrolling: (Bool) -> Void
+    private let defaults: UserDefaults
+    private var devicesSubscription: AnyCancellable?
+    private var priority = DevicePolicyPriority()
+    private var lastAppliedDirection: Bool?
+    private var isRunning = false
+    private var initialEnumerationCompleted = false
+    static let controlEnabledDefaultsKey = "scrollControlEnabled"
 
     @Published private(set) var mouseConnected = false
     @Published private(set) var naturalScrollingEnabled = true
+    @Published private(set) var isControlEnabled: Bool
 
-    @Published var naturalScrollingMode: NaturalScrollingMode {
-        didSet {
-            switch naturalScrollingMode {
-
-            case .on:
-                UserDefaults.standard.set(
-                    "on",
-                    forKey: "naturalScrollingMode"
-                )
-
-                setNaturalScrolling(true)
-
-            case .off:
-                UserDefaults.standard.set(
-                    "off",
-                    forKey: "naturalScrollingMode"
-                )
-
-                setNaturalScrolling(false)
-
-            case .automatic:
-                UserDefaults.standard.set(
-                    "automatic",
-                    forKey: "naturalScrollingMode"
-                )
-
-                applyAutomaticModeImmediately()
-            }
-        }
+    func setControlEnabled(_ enabled: Bool) {
+        guard isControlEnabled != enabled else { return }
+        isControlEnabled = enabled
+        defaults.set(enabled, forKey: Self.controlEnabledDefaultsKey)
+        // The system preference may be changed elsewhere while control is off.
+        // Re-enabling must apply even if the desired value matches our old cache.
+        lastAppliedDirection = nil
+        if enabled { applyCurrentPolicy() }
     }
 
     init(
-        mouseDetector: MouseDetector = MouseDetector(),
-        scrollManager: ScrollManager = ScrollManager()
+        mouseDetector: MouseDetector? = nil,
+        scrollManager: ScrollManager? = nil,
+        policyStore: DevicePolicyStore? = nil,
+        defaults: UserDefaults = .standard,
+        applyScrolling: ((Bool) -> Void)? = nil
     ) {
-        self.mouseDetector = mouseDetector
-        self.scrollManager = scrollManager
-
-        let savedMode =
-            UserDefaults.standard.string(
-                forKey: "naturalScrollingMode"
-            ) ?? "automatic"
-
-        switch savedMode {
-        case "on":
-            self.naturalScrollingMode = .on
-
-        case "off":
-            self.naturalScrollingMode = .off
-
-        default:
-            self.naturalScrollingMode = .automatic
+        let detector = mouseDetector ?? MouseDetector()
+        self.mouseDetector = detector
+        self.policyStore = policyStore ?? DevicePolicyStore(defaults: defaults)
+        self.defaults = defaults
+        if let applyScrolling {
+            self.applyScrolling = applyScrolling
+        } else {
+            let manager = scrollManager ?? ScrollManager()
+            self.applyScrolling = { manager.setNaturalScrolling($0) }
+        }
+        if defaults.object(forKey: Self.controlEnabledDefaultsKey) != nil {
+            isControlEnabled = defaults.bool(forKey: Self.controlEnabledDefaultsKey)
+        } else {
+            let legacy = defaults.string(forKey: "naturalScrollingMode")
+            // Preserve a formerly forced direction by leaving system control off.
+            isControlEnabled = legacy != "on" && legacy != "off"
+            defaults.set(isControlEnabled, forKey: Self.controlEnabledDefaultsKey)
+        }
+        defaults.removeObject(forKey: "naturalScrollingMode")
+        self.policyStore.onChange = { [weak self] change in
+            self?.policiesChanged(change)
+        }
+        devicesSubscription = detector.$connectedDevices.sink { [weak self] devices in
+            // @Published emits before the detector property is assigned. Use the
+            // supplied snapshot, and evaluate only after matching has completed.
+            self?.policyStore.updateDevices(devices)
         }
     }
 
     func start() {
-        print("================================")
-        print("NaturalScrollingSwitcher started")
-        print("================================")
-
-        checkMouseState()
-
-        timer = Timer.scheduledTimer(
-            withTimeInterval: 2.0,
-            repeats: true
-        ) { [weak self] _ in
-            self?.checkMouseState()
+        guard !isRunning else { return }
+        isRunning = true
+        mouseDetector.start { [weak self] _ in
+            guard let self else { return }
+            // The first aggregate callback follows the complete initial snapshot,
+            // including startup with no matching devices.
+            self.initialEnumerationCompleted = true
+            self.applyCurrentPolicy()
         }
     }
 
     func stop() {
-        timer?.invalidate()
-        timer = nil
-
-        print("NaturalScrollingSwitcher stopped")
+        isRunning = false
+        initialEnumerationCompleted = false
+        mouseDetector.stop()
+        priority = DevicePolicyPriority()
+        lastAppliedDirection = nil
     }
 
-    private func checkMouseState() {
-
-        let mouseConnected = mouseDetector.isMouseConnected()
-
-        DispatchQueue.main.async {
-            self.mouseConnected = mouseConnected
-        }
-
-        // Auto 모드가 아니면 마우스 상태만 표시하고
-        // Natural Scrolling은 자동으로 변경하지 않는다.
-        guard naturalScrollingMode == .automatic else {
-            return
-        }
-
-        if lastMouseState == nil || lastMouseState != mouseConnected {
-
-            print("--------------------------------")
-            print("Mouse state changed")
-            print("Mouse connected: \(mouseConnected)")
-            print("--------------------------------")
-
-            let naturalScrolling = !mouseConnected
-
-            scrollManager.setNaturalScrolling(naturalScrolling)
-
-            DispatchQueue.main.async {
-                self.naturalScrollingEnabled = naturalScrolling
-            }
-
-            lastMouseState = mouseConnected
+    private func policiesChanged(_ change: DevicePolicyStore.Change) {
+        let devices = policyStore.devices
+        priority.updateDevices(devices)
+        mouseConnected = devices.contains { $0.isExternalMouse }
+        switch change {
+        case .devicesUpdated:
+            if isRunning { applyCurrentPolicy() }
+        case .policyChanged(let id):
+            guard isRunning, let id,
+                  devices.contains(where: { $0.id == id && $0.isExternalMouse }) else { return }
+            priority.policyChanged(for: id)
+            // Policy edits never implicitly re-enable global control.
+            applyCurrentPolicy()
         }
     }
 
-    func setMode(_ mode: NaturalScrollingMode) {
-        naturalScrollingMode = mode
-    }
-
-    func setNaturalScrolling(_ enabled: Bool) {
-
-        scrollManager.setNaturalScrolling(enabled)
-
-        DispatchQueue.main.async {
-            self.naturalScrollingEnabled = enabled
-        }
-
-        print("--------------------------------")
-        print("Manual Natural Scrolling change")
-        print("Natural Scrolling: \(enabled)")
-        print("--------------------------------")
-    }
-
-    private func applyAutomaticModeImmediately() {
-
-        let mouseConnected = mouseDetector.isMouseConnected()
-        let naturalScrolling = !mouseConnected
-
-        scrollManager.setNaturalScrolling(naturalScrolling)
-
-        DispatchQueue.main.async {
-            self.mouseConnected = mouseConnected
-            self.naturalScrollingEnabled = naturalScrolling
-        }
-
-        lastMouseState = mouseConnected
-
-        print("--------------------------------")
-        print("Automatic mode applied")
-        print("Mouse connected: \(mouseConnected)")
-        print("Natural Scrolling: \(naturalScrolling)")
-        print("--------------------------------")
+    private func applyCurrentPolicy() {
+        guard isRunning, initialEnumerationCompleted, isControlEnabled else { return }
+        let selected = policyStore.devices.first { $0.id == priority.selectedDevice }
+        let policy = selected.map { policyStore.policy(for: $0) } ?? DevicePolicy()
+        let enabled = policy.mode == .manual ? policy.manualDirection.naturalScrollingEnabled : !mouseConnected
+        guard lastAppliedDirection != enabled else { return }
+        applyScrolling(enabled)
+        naturalScrollingEnabled = enabled
+        lastAppliedDirection = enabled
     }
 }

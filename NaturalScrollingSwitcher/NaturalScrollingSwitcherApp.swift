@@ -8,7 +8,6 @@
 import SwiftUI
 import AppKit
 
-@main
 struct NaturalScrollingSwitcherApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self)
     private var appDelegate
@@ -17,8 +16,13 @@ struct NaturalScrollingSwitcherApp: App {
         MenuBarExtra {
             MenuBarView(
                 monitor: appDelegate.monitor,
-                loginItemManager: appDelegate.loginItemManager
+                loginItemManager: appDelegate.loginItemManager,
+                languageSettings: appDelegate.languageSettings,
+                selectLanguage: appDelegate.selectLanguage,
+                showDevices: { appDelegate.showDevices() },
+                showCredits: { appDelegate.showCredits() }
             )
+            .environment(\.locale, L10n.locale)
         }
         label: {
             Image(nsImage: menuBarIcon)
@@ -31,8 +35,11 @@ struct MenuBarView: View {
 
     @ObservedObject var monitor: ScrollMonitor
     @ObservedObject var loginItemManager: LoginItemManager
+    @ObservedObject var languageSettings: LanguageSettings
+    let selectLanguage: (LanguagePreference) -> Void
+    let showDevices: () -> Void
 
-    @State private var creditsWindow: NSWindow?
+    let showCredits: () -> Void
 
     var body: some View {
 
@@ -41,7 +48,7 @@ struct MenuBarView: View {
             Button {
                 showCredits()
             } label: {
-                Text("Natural Scrolling Switcher")
+                Text(L10n.menuAbout)
                     .font(.headline)
                     .foregroundStyle(.primary)
             }
@@ -51,27 +58,27 @@ struct MenuBarView: View {
 
             if monitor.mouseConnected {
                 Label(
-                    "Mouse connected",
+                    L10n.menuMouseConnected,
                     systemImage: "computermouse"
                 )
             } else {
                 Label(
-                    "Trackpad only",
+                    L10n.menuTrackpadOnly,
                     systemImage: "hand.point.up.left"
                 )
             }
 
             Text(
-                monitor.naturalScrollingEnabled
-                    ? "Natural Scrolling: ON"
-                    : "Natural Scrolling: OFF"
+                !monitor.isControlEnabled
+                    ? L10n.menuControlDisabled
+                    : (monitor.naturalScrollingEnabled ? L10n.menuScrollingOn : L10n.menuScrollingOff)
             )
             .foregroundStyle(.secondary)
 
             Divider()
 
             Toggle(
-                "Launch at login",
+                L10n.menuLaunchAtLogin,
                 isOn: Binding(
                     get: {
                         loginItemManager.isEnabled
@@ -82,40 +89,35 @@ struct MenuBarView: View {
                 )
             )
 
-            Menu("Natural Scrolling") {
-
+            Menu(L10n.menuNaturalScrolling) {
                 Button {
-                    monitor.setMode(.on)
+                    monitor.setControlEnabled(true)
                 } label: {
                     HStack {
-                        Text("ON")
-
-                        if monitor.naturalScrollingMode == .on {
-                            Image(systemName: "checkmark")
-                        }
+                        Text(L10n.menuEnabled)
+                        if monitor.isControlEnabled { Image(systemName: "checkmark") }
                     }
                 }
-
                 Button {
-                    monitor.setMode(.off)
+                    monitor.setControlEnabled(false)
                 } label: {
                     HStack {
-                        Text("OFF")
-
-                        if monitor.naturalScrollingMode == .off {
-                            Image(systemName: "checkmark")
-                        }
+                        Text(L10n.menuDisabled)
+                        if !monitor.isControlEnabled { Image(systemName: "checkmark") }
                     }
                 }
+            }
 
-                Button {
-                    monitor.setMode(.automatic)
-                } label: {
-                    HStack {
-                        Text("Auto")
-
-                        if monitor.naturalScrollingMode == .automatic {
-                            Image(systemName: "checkmark")
+            Menu(L10n.menuLanguage) {
+                ForEach(LanguagePreference.allCases) { preference in
+                    Button {
+                        selectLanguage(preference)
+                    } label: {
+                        HStack {
+                            Text(languageTitle(preference))
+                            if languageSettings.selection == preference {
+                                Image(systemName: "checkmark")
+                            }
                         }
                     }
                 }
@@ -123,42 +125,26 @@ struct MenuBarView: View {
 
             Divider()
 
-            Button("Quit Natural Scrolling Switcher") {
+            Button(L10n.menuDevices, action: showDevices)
+                .disabled(!monitor.isControlEnabled)
+
+            Divider()
+
+            Button(L10n.menuQuit) {
                 NSApplication.shared.terminate(nil)
             }
         }
         .padding()
     }
 
-    private func showCredits() {
-
-        if let existingWindow = creditsWindow {
-            existingWindow.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            return
+    private func languageTitle(_ preference: LanguagePreference) -> String {
+        switch preference {
+        case .systemDefault:
+            return L10n.languageSystemDefault(languageSettings.resolvedSystemLanguage == .korean
+                ? L10n.languageKorean : L10n.languageEnglish)
+        case .english: return L10n.languageEnglish
+        case .korean: return L10n.languageKorean
         }
-
-        let hostingController = NSHostingController(
-            rootView: CreditsView()
-        )
-
-        let window = NSWindow(
-            contentViewController: hostingController
-        )
-
-        window.title = "About Natural Scrolling Switcher"
-
-        window.styleMask = [
-            .titled,
-            .closable
-        ]
-
-        window.isReleasedWhenClosed = false
-        window.center()
-        window.makeKeyAndOrderFront(nil)
-
-        NSApp.activate(ignoringOtherApps: true)
-
-        creditsWindow = window
     }
+
 }
