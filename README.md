@@ -1,75 +1,181 @@
 # Natural Scrolling Switcher
 
-A lightweight macOS menu bar utility that automatically switches
-Natural Scrolling depending on whether an external mouse is connected.
+[한국어](README.ko.md)
 
-외장 마우스 연결 여부에 따라 macOS의 '자연스러운 스크롤' 설정을
-자동으로 전환해 주는 가벼운 메뉴 막대 유틸리티입니다.
+Natural Scrolling Switcher (NSS) is a lightweight macOS menu bar utility that automatically manages the system-wide **Natural Scrolling** setting based on the pointing devices connected to your Mac.
+
+It is designed for users who prefer:
+
+- **Natural Scrolling** with a trackpad
+- **Classic scrolling** with an external mouse
+
+NSS automatically handles the change, so you do not need to open System Settings and switch the scroll direction every time you connect or disconnect a mouse.
+
+---
 
 ## Features
 
-- 🖱 Automatically detects external mouse connection
-- ↕ Automatically switches Natural Scrolling
-- 🚀 Launch at Login
-- 🔧 Runs quietly in the menu bar
+- Automatically detects connected external mice
+- Automatically switches the macOS **Natural Scrolling** setting
+- Event-driven device detection
+- Per-mouse Auto / Manual mode
+- Per-mouse scroll direction setting
+- Restores saved settings when a mouse reconnects
+- Supports multiple external mice
+- Optional display of internal devices such as the built-in trackpad
+- Launch at login support
+- English and Korean interface
+- Runs conveniently from the macOS menu bar
 
-## 주요 기능
+---
 
-- 🖱 외장 마우스 연결을 자동으로 감지
-- ↕ 자연스러운 스크롤 설정을 자동으로 전환
-- 🚀 로그인 시 자동 실행
-- 🔧 메뉴 막대에서 조용히 실행
+## How It Works
 
-## Download
+macOS uses a single system-wide scroll direction setting for all mice and trackpads, collectively referred to here as pointing devices.
 
-Download the latest version from:
+NSS detects connected pointing devices and automatically changes that global setting according to the configured device behavior.
 
-**[Releases](../../releases/latest)**
+For a typical setup using a built-in trackpad and an external mouse:
 
-## 다운로드
+| Situation | Scroll Direction |
+| --- | --- |
+| Trackpad only | Natural Scrolling |
+| External mouse connected | Classic scrolling |
+| External mouse disconnected | Natural Scrolling |
 
-최신 버전은 아래에서 다운로드할 수 있습니다.
+This means you can switch between a trackpad and a conventional mouse without manually changing the macOS scroll direction each time.
 
-**[Releases](../../releases/latest)**
+---
 
-## Requirements
+## Device Settings
 
-- macOS 13.5 or later
+Select **Devices...** from the NSS menu to manage connected pointing devices.
 
-## 시스템 요구 사항
+Each external mouse can be configured in one of two modes: **Auto** or **Manual**.
 
-- macOS 13.5 이상
+### Auto
+
+In Auto mode, the device follows NSS's automatic switching behavior.
+
+For a typical external mouse, NSS switches macOS to Classic scrolling while the mouse is connected and restores Natural Scrolling when the mouse is disconnected.
+
+### Manual
+
+Manual mode lets you explicitly choose the scroll direction associated with that device.
+
+When Manual mode is selected, use **Manual Direction** to choose the desired scroll direction.
+
+---
+
+## When Multiple Devices Are Connected
+
+When multiple mice are connected, NSS determines which device setting takes priority using the following order:
+
+1. The connected mouse whose setting was edited most recently
+2. Otherwise, the most recently connected mouse
+
+When that mouse is disconnected, the last connected remaining mouse takes over.
+
+Because macOS uses only one global scroll direction setting for all pointing devices, two simultaneously connected devices cannot use different system scroll directions at the same time.
+
+---
+
+## Device Recognition
+
+NSS remembers supported pointing devices and attempts to restore their saved settings when they reconnect.
+
+When possible, NSS uses relatively stable identifiers such as serial numbers or unique device IDs to recognize previously connected devices.
+
+Some devices provide limited identification information. In those cases, identical devices may not always be distinguishable from one another.
+
+---
+
+## Menu Bar
+
+The NSS menu provides access to:
+
+- **About NSS**
+- **Launch at login**
+- **NSS Control**
+  - Enabled
+  - Disabled
+- **Language**
+  - System Default
+  - English
+  - 한국어
+- **Devices...**
+- **Quit Natural Scrolling Switcher**
+
+### NSS Control
+
+Selecting **Disabled** temporarily stops NSS from automatically managing the scroll direction without quitting the app.
+
+Select **Enabled** at any time to resume automatic control.
+
+---
+
+## Language
+
+NSS supports the following language options:
+
+- System Default
+- English
+- 한국어
+
+When **System Default** is selected, NSS follows the current macOS language setting.
+
+---
+
+## Show Internal Devices
+
+By default, the Devices window focuses on external pointing devices such as mice.
+
+Enable **Show internal devices** if you also want internal pointing devices, such as the built-in trackpad, to appear in the device list.
+
+---
 
 ## Installation
 
-1. Download the latest `.zip` from Releases.
-2. Extract the ZIP file.
-3. Move `NaturalScrollingSwitcher.app` to the `Applications` folder.
+1. Download the latest version from the GitHub Releases page.
+2. Extract the downloaded ZIP file.
+3. Move **Natural Scrolling Switcher.app** to the `/Applications` folder.
 4. Launch the app.
 
-## 설치 방법
+NSS runs from the macOS menu bar.
 
-1. Releases에서 최신 버전의 `.zip` 파일을 다운로드합니다.
-2. ZIP 파일의 압축을 해제합니다.
-3. `NaturalScrollingSwitcher.app`을 `응용 프로그램(Applications)` 폴더로 이동합니다.
-4. 앱을 실행합니다.
+---
+
+## System Requirements
+
+- macOS 13.5 or later
+- Mac
+
+---
+
+## Launch at Login
+
+Enable **Launch at login** from the NSS menu to start Natural Scrolling Switcher automatically whenever you log in to macOS.
+
+---
+
+## Privacy
+
+Natural Scrolling Switcher does not collect, store, or transmit personal data.
+
+The app does not require an online account and does not use analytics or telemetry.
+
+---
+
+## Technical Notes
+
+macOS does not provide separate system-level scroll direction settings for individual pointing devices.
+
+NSS works around this limitation by dynamically changing the global Natural Scrolling setting according to the currently applicable device configuration.
+
+Device detection is event-driven rather than based on periodic polling.
+
+---
 
 ## License
 
-MIT License
-
-## 라이선스
-
-MIT License
-
-## macOS Security Warning
-
-Because this app is distributed outside the Mac App Store
-and is not notarized by Apple, macOS may display a security warning
-when opening the app for the first time.
-
-## macOS 보안 경고
-
-이 앱은 Mac App Store 외부에서 배포되며
-Apple의 공증(Notarization)을 받지 않았기 때문에,
-처음 실행할 때 macOS에서 보안 경고가 표시될 수 있습니다.
+See the repository's license file for details.
