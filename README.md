@@ -2,6 +2,20 @@
 
 [한국어](README.ko.md)
 
+## Screenshots
+
+### Menu Bar
+
+![Natural Scrolling Switcher menu](Screenshots/menu-en.png)
+
+### Device Settings
+
+![Device settings](Screenshots/devices-en.png)
+
+### 한국어 인터페이스
+
+![Korean interface](Screenshots/devices-ko.png)
+
 Natural Scrolling Switcher (NSS) is a lightweight macOS menu bar utility that automatically manages the system-wide **Natural Scrolling** setting based on the pointing devices connected to your Mac.
 
 It is designed for users who prefer:
