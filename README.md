@@ -179,3 +179,19 @@ Device detection is event-driven rather than based on periodic polling.
 ## License
 
 See the repository's license file for details.
+
+---
+
+## macOS Security Notice
+
+Natural Scrolling Switcher is currently not signed with an Apple Developer ID or notarized by Apple.
+
+As a result, macOS may display a security warning and prevent the app from opening the first time you launch it.
+
+If this happens:
+
+1. Open **System Settings → Privacy & Security**.
+2. Find the message indicating that Natural Scrolling Switcher was blocked and click **Open Anyway**.
+3. In the confirmation dialog, click **Open** again.
+
+Natural Scrolling Switcher does not collect, store, or transmit personal data to external servers.
